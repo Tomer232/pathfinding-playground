@@ -115,6 +115,28 @@ class Grid:
             if not placed:
                 print(f"Failed to place a wall for direction: {direction}")
 
+    def place_start_and_end_points(self):
+        self.start_point = self._get_random_safe_position()
+        self.end_point = self._get_random_safe_position(far_from=self.start_point, min_distance=30)
+
+        # Set start and end points on the grid
+        self.grid[self.start_point[1], self.start_point[0]] = 2  # Start point
+        self.grid[self.end_point[1], self.end_point[0]] = 3      # End point
+
+    def _get_random_safe_position(self, far_from=None, min_distance=0):
+        while True:
+            x = random.randint(1, self.width - 2)
+            y = random.randint(1, self.height - 2)
+
+            # Check if the cell is empty and not near walls
+            if self.grid[y, x] == 0:
+                if far_from:
+                    distance = abs(far_from[0] - x) + abs(far_from[1] - y)
+                    if distance >= min_distance:
+                        return x, y
+                else:
+                    return x, y
+
     def draw(self, screen):
         for y in range(self.height):
             for x in range(self.width):
@@ -158,7 +180,7 @@ def save_playground_with_data(screen, playground_name, best_algorithm):
     # Find the next row to write, ensuring 7 empty rows
     next_row = ws.max_row + 8  # Add 8 to leave 7 empty rows between entries
 
-    # Write metadata in the correct row
+    # Write metadata 
     ws.cell(row=next_row, column=1, value=playground_name)
     ws.cell(row=next_row, column=2, value=date)
     ws.cell(row=next_row, column=3, value=time)
@@ -168,8 +190,8 @@ def save_playground_with_data(screen, playground_name, best_algorithm):
     # Place the image at the correct row and resize its display
     img = ExcelImage(image_path)
     img.anchor = f"E{next_row}"
-    img.width = 120  # Set desired width in pixels
-    img.height = 120  # Set desired height in pixels
+    img.width = 160  
+    img.height = 120  
     ws.add_image(img)
 
     wb.save(excel_file)
@@ -180,17 +202,39 @@ def main():
     pygame.init()
 
     # Screen dimensions
-    SCREEN_WIDTH = 800
+    SCREEN_WIDTH = 1200
     SCREEN_HEIGHT = 600
+
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Pathfinding Playground")
 
     # Create grid
     grid = Grid(cell_size=15)
+    grid.place_start_and_end_points()
+
+    buttons = [
+        {"name": "BFS", "rect": pygame.Rect(900,50,200,50)},
+        {"name": "DFS", "rect": pygame.Rect(900,120,200,50)},
+        {"name": "A*", "rect": pygame.Rect(900,190,200,50)},
+        {"name": "DIJKSTRA", "rect": pygame.Rect(900,260,200,50)},
+        {"name": "BI-RTT*", "rect": pygame.Rect(900,330,200,50)},
+    ]
+
+    def draw_buttons():
+        font = pygame.font.SysFont("Verdana", 36)
+        button_color = (0, 102, 204)
+        text_color = (255, 255, 255)
+
+        for button in buttons:
+            pygame.draw.rect(screen, button_color, button["rect"])
+            text = font.render(button["name"], True, text_color)
+            text_rect = text.get_rect(center=button["rect"].center)  
+            screen.blit(text, text_rect)
 
     # Draw the grid once
     screen.fill((255, 255, 255))
     grid.draw(screen)
+    draw_buttons()
 
     # Save the playground data
     save_playground_with_data(screen, "playground_1", "Algorithm Placeholder")
@@ -204,6 +248,7 @@ def main():
 
         screen.fill((255, 255, 255))
         grid.draw(screen)
+        draw_buttons()
         pygame.display.flip()
 
     pygame.quit()
