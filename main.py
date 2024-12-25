@@ -132,40 +132,63 @@ class Grid:
     def dfs(self, screen):
         start = self.start_point
         end = self.end_point
-        directions = [
-            (0, 1), (1, 0), (0, -1), (-1, 0),  # Up, Right, Down, Left
-            (1, 1), (-1, -1), (1, -1), (-1, 1)  # Diagonal directions
-        ]
-        visited = set()
-        stack = [(start, [])]
-
+        
+        # Pre-compute directions and randomize for more natural paths
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0),
+                    (1, 1), (-1, -1), (1, -1), (-1, 1)]
+        random.shuffle(directions)  # Randomize initial direction choices
+        
+        visited = set([start])  # Using set for O(1) lookup
+        stack = [(start, [start])]  # Store current position and path
+        update_frequency = 10  # Batch updates for performance
+        updates = 0
+        
         while stack:
-            (x, y), path = stack.pop()
-
-            if (x, y) in visited:
-                continue
-
-            visited.add((x, y))
-            path = path + [(x, y)]
-
-            # Visualize the visited cell
-            if self.grid[y][x] not in [2, 3]:
-                self.grid[y][x] = 5
-            self.draw(screen)
-            pygame.display.flip()
-            pygame.time.delay(1)
-
-            if (x, y) == end:
+            current, path = stack.pop()
+            x, y = current
+            
+            # Early exit if we found the end
+            if current == end:
+                # Efficiently draw the final path
                 for px, py in path:
                     if self.grid[py][px] not in [2, 3]:
                         self.grid[py][px] = 4
                 return True
-
+            
+            # Visualize current cell
+            if self.grid[y][x] not in [2, 3]:
+                self.grid[y][x] = 5
+                updates += 1
+                
+                # Batch update the display
+                if updates % update_frequency == 0:
+                    self.draw(screen)
+                    pygame.display.flip()
+                    pygame.event.pump()  # Handle events to prevent freezing
+            
+            # Randomize directions periodically for better exploration
+            if len(path) % 5 == 0:
+                random.shuffle(directions)
+            
+            # Check all neighbors efficiently
+            valid_moves = []
             for dx, dy in directions:
                 nx, ny = x + dx, y + dy
-                if 0 <= nx < self.width and 0 <= ny < self.height and self.grid[ny][nx] != 1:
-                    stack.append(((nx, ny), path))
-
+                neighbor = (nx, ny)
+                
+                # Combine all checks in one condition
+                if (0 <= nx < self.width and 
+                    0 <= ny < self.height and 
+                    neighbor not in visited and 
+                    self.grid[ny][nx] != 1):
+                    
+                    valid_moves.append(neighbor)
+            
+            # Add all valid moves to stack at once
+            for move in valid_moves:
+                visited.add(move)
+                stack.append((move, path + [move]))
+        
         return False
 
     def a_star(self, screen):
