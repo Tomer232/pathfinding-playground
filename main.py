@@ -82,7 +82,7 @@ class Grid:
     def reset_visualization(self):
         for y in range(self.height):
             for x in range(self.width):
-                if self.grid[y, x] in [4, 5]:  # Reset path and visited cells
+                if self.grid[y, x] in [4, 5]:  
                     self.grid[y, x] = 0
 
         self.grid[self.start_point[1], self.start_point[0]] = 2
@@ -91,40 +91,42 @@ class Grid:
     def bfs(self, screen):
         start = self.start_point
         end = self.end_point
-        directions = [
-            (0, 1), (1, 0), (0, -1), (-1, 0),  # Up, Right, Down, Left
-            (1, 1), (-1, -1), (1, -1), (-1, 1)  # Diagonal directions
-        ]
-        visited = set()
-        queue = deque([(start, [])])
-
+        
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0),
+                    (1, 1), (-1, -1), (1, -1), (-1, 1)]
+        
+        visited = set([start])  
+        queue = deque([(start, [start])])  
+        update_frequency = 10  
+        updates = 0
+        
         while queue:
-            (x, y), path = queue.popleft()
-
-            if (x, y) in visited:
-                continue
-
-            visited.add((x, y))
-            path = path + [(x, y)]
-
-            # Visualize the visited cell
-            if self.grid[y][x] not in [2, 3]:
-                self.grid[y][x] = 5
-            self.draw(screen)
-            pygame.display.flip()
-            pygame.time.delay(1)
-
-            if (x, y) == end:
+            current, path = queue.popleft()
+            x, y = current
+            
+            if current == end:
                 for px, py in path:
                     if self.grid[py][px] not in [2, 3]:
                         self.grid[py][px] = 4
                 return True
-
+            
+            if self.grid[y][x] not in [2, 3]:
+                self.grid[y][x] = 5
+                updates += 1
+                
+                if updates % update_frequency == 0:
+                    self.draw(screen)
+                    pygame.display.flip()
+            
             for dx, dy in directions:
                 nx, ny = x + dx, y + dy
-                if 0 <= nx < self.width and 0 <= ny < self.height and self.grid[ny][nx] != 1:
-                    queue.append(((nx, ny), path))
-
+                neighbor = (nx, ny)
+                
+                if (0 <= nx < self.width and 0 <= ny < self.height and neighbor not in visited and self.grid[ny][nx] != 1):
+                    visited.add(neighbor)
+                    new_path = path + [neighbor]
+                    queue.append((neighbor, new_path))
+                    
         return False
 
     def dfs(self, screen):
