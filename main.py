@@ -14,17 +14,13 @@ class Grid:
         self.screen_height = screen_height
         self.cell_size = cell_size
 
-        # Calculate grid dimensions
         self.width = screen_width // cell_size
         self.height = screen_height // cell_size
 
-        # Create grid data structure
         self.grid = np.zeros((self.height, self.width), dtype=int)
 
-        # Set outer edges as black walls
         self._create_outer_walls()
 
-        # Generate maze
         self._generate_maze()
 
         # Colors
@@ -38,11 +34,9 @@ class Grid:
         }
 
     def _create_outer_walls(self):
-        # Top and bottom walls
         self.grid[0, :] = 1
         self.grid[-1, :] = 1
 
-        # Left and right walls
         self.grid[:, 0] = 1
         self.grid[:, -1] = 1
 
@@ -56,28 +50,8 @@ class Grid:
         self.start_point = self._get_random_safe_position()
         self.end_point = self._get_random_safe_position(far_from=self.start_point, min_distance=30)
 
-        # Set start and end points on the grid
         self.grid[self.start_point[1], self.start_point[0]] = 2  # Start point
         self.grid[self.end_point[1], self.end_point[0]] = 3      # End point
-
-        # Ensure there is a path between start and end points
-        self._create_path(self.start_point, self.end_point)
-
-    def _create_path(self, start, end):
-        """Ensure a valid path exists between start and end points."""
-        x, y = start
-        ex, ey = end
-
-        while (x, y) != (ex, ey):
-            # Move horizontally or vertically towards the endpoint
-            if x != ex:
-                x += 1 if x < ex else -1
-            elif y != ey:
-                y += 1 if y < ey else -1
-
-            # Avoid overwriting the start or end points
-            if self.grid[y, x] not in [2, 3]:
-                self.grid[y, x] = 0
 
     def _get_random_safe_position(self, far_from=None, min_distance=0):
         while True:
@@ -106,13 +80,11 @@ class Grid:
                 pygame.draw.rect(screen, (200, 200, 200), rect, 1)
 
     def reset_visualization(self):
-        """Reset the grid to its initial state for visualization."""
         for y in range(self.height):
             for x in range(self.width):
                 if self.grid[y, x] in [4, 5]:  # Reset path and visited cells
                     self.grid[y, x] = 0
 
-        # Ensure start and end points remain the same
         self.grid[self.start_point[1], self.start_point[0]] = 2
         self.grid[self.end_point[1], self.end_point[0]] = 3
 
@@ -197,46 +169,58 @@ class Grid:
     def a_star(self, screen):
         start = self.start_point
         end = self.end_point
-        directions = [
-            (0, 1), (1, 0), (0, -1), (-1, 0),  # Up, Right, Down, Left
-            (1, 1), (-1, -1), (1, -1), (-1, 1)  # Diagonal directions
-        ]
-        random.shuffle(directions)
-
-        pq = []
-        heapq.heappush(pq, (0, 0, start, []))
-        visited = set()
-
+        
         def heuristic(current, goal):
-            return ((current[0] - goal[0]) ** 2 + (current[1] - goal[1]) ** 2) ** 0.5
+            # Manhattan distance heuristic
+            return abs(current[0] - goal[0]) + abs(current[1] - goal[1])
 
-        while pq:
-            _, g, (x, y), path = heapq.heappop(pq)
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0), 
+                    (1, 1), (-1, -1), (1, -1), (-1, 1)]
+        
+        g_scores = {start: 0}
+        f_scores = {start: heuristic(start, end)}
+        came_from = {}
+        
+        open_set = [(f_scores[start], start)]
+        closed_set = set()
 
-            if (x, y) in visited:
-                continue
-
-            visited.add((x, y))
-            path = path + [(x, y)]
-
-            if self.grid[y][x] not in [2, 3]:
-                self.grid[y][x] = 5
-            self.draw(screen)
-            pygame.display.flip()
-            pygame.time.delay(1)
-
-            if (x, y) == end:
-                for px, py in path:
-                    if self.grid[py][px] not in [2, 3]:
-                        self.grid[py][px] = 4
+        while open_set:
+            current = heapq.heappop(open_set)[1]
+            
+            if current == end:
+                path = []
+                while current in came_from:
+                    if self.grid[current[1]][current[0]] not in [2, 3]:
+                        self.grid[current[1]][current[0]] = 4
+                    current = came_from[current]
                 return True
-
-            random.shuffle(directions)
+                
+            closed_set.add(current)
+            
             for dx, dy in directions:
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < self.width and 0 <= ny < self.height and self.grid[ny][nx] != 1:
-                    f = g + 1 + heuristic((nx, ny), end)
-                    heapq.heappush(pq, (f, g + 1, (nx, ny), path))
+                neighbor = (current[0] + dx, current[1] + dy)
+                
+                if (not (0 <= neighbor[0] < self.width and 
+                        0 <= neighbor[1] < self.height) or
+                    neighbor in closed_set or
+                    self.grid[neighbor[1]][neighbor[0]] == 1):
+                    continue
+
+                tentative_g = g_scores[current] + (1.414 if dx and dy else 1)
+
+                if (neighbor not in g_scores or 
+                    tentative_g < g_scores[neighbor]):
+                    came_from[neighbor] = current
+                    g_scores[neighbor] = tentative_g
+                    f_scores[neighbor] = tentative_g + heuristic(neighbor, end)
+                    heapq.heappush(open_set, (f_scores[neighbor], neighbor))
+                    
+                    if self.grid[neighbor[1]][neighbor[0]] not in [2, 3]:
+                        self.grid[neighbor[1]][neighbor[0]] = 5
+                        
+                    if len(closed_set) % 10 == 0:
+                        self.draw(screen)
+                        pygame.display.flip()
 
         return False
 
@@ -260,7 +244,6 @@ class Grid:
                     self.grid[y][x] != 1)
         
         def interpolate_points(p1, p2):
-            """Generate points along line between p1 and p2 using Bresenham's line algorithm"""
             points = []
             x1, y1 = p1
             x2, y2 = p2
@@ -363,27 +346,22 @@ class Grid:
             return None
         
         def construct_path(start_node, end_node):
-            """Construct a single continuous path from start to end nodes."""
             path = []
             
-            # Collect points from end to connection point
             current = end_node
             while current:
                 path.append(current.position)
                 current = current.parent
                 
-            # Reverse to get from start to connection
             path.reverse()
             
-            # Then add points from connection to end
-            current = end_node.parent  # Start from parent to avoid duplicate connection point
+            current = end_node.parent  
             while current:
                 path.append(current.position)
                 current = current.parent
                 
             return path
         
-        # Initialize trees
         start_tree = {start: Node(start)}
         end_tree = {end: Node(end)}
         
@@ -394,7 +372,6 @@ class Grid:
         
         # Main RRT* loop
         for iteration in range(max_iterations):
-            # Handle events to prevent UI freeze
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -408,14 +385,12 @@ class Grid:
                 active_tree = end_tree
                 other_tree = start_tree
                 
-            # Generate target point with goal bias
             if random.random() < 0.1:  # 10% chance to target the goal
                 target = list(other_tree.keys())[0]
             else:
                 target = (random.randint(1, self.width - 2),
                         random.randint(1, self.height - 2))
             
-            # Extend tree and check for connections
             new_node = extend_tree(active_tree, target)
             if new_node:
                 nearby_nodes = get_neighbors(new_node.position, radius=3)
@@ -428,14 +403,11 @@ class Grid:
                             min_path_length = path_length
                             connecting_pair = (new_node, other_node)
             
-            # Periodic visualization update
             if iteration % 10 == 0:
                 self.draw(screen)
                 pygame.display.flip()
         
-        # Path construction and visualization
         if connecting_pair:
-            # Determine which node belongs to which tree
             if start_tree.get(connecting_pair[0].position):
                 start_node = connecting_pair[0]
                 end_node = connecting_pair[1]
@@ -443,18 +415,15 @@ class Grid:
                 start_node = connecting_pair[1]
                 end_node = connecting_pair[0]
             
-            # Get single continuous path
             path = construct_path(start_node, end_node)
             
-            # Visualize path with single line
             for i in range(len(path) - 1):
                 point1 = path[i]
                 point2 = path[i + 1]
                 interpolated = interpolate_points(point1, point2)
                 
-                # Draw interpolated points
                 for px, py in interpolated:
-                    if self.grid[py][px] not in [2, 3]:  # Don't overwrite start/end points
+                    if self.grid[py][px] not in [2, 3]:  
                         self.grid[py][px] = 4
             
             return True
