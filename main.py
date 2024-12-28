@@ -29,8 +29,8 @@ class Grid:
             1: (0, 0, 0),  # Wall
             2: (0, 255, 0),  # Start point
             3: (255, 0, 0),  # End point
-            4: (100, 100, 255),  # Path
-            5: (173, 216, 230)  # Visited cell
+            4: (114, 9, 183),  # Path
+            5: (236, 188, 253)  # Visited cell
         }
 
     def _create_outer_walls(self):
@@ -58,7 +58,6 @@ class Grid:
             x = random.randint(1, self.width - 2)
             y = random.randint(1, self.height - 2)
 
-            # Check if the cell is empty
             if self.grid[y, x] == 0:
                 if far_from:
                     distance = abs(far_from[0] - x) + abs(far_from[1] - y)
@@ -133,50 +132,42 @@ class Grid:
         start = self.start_point
         end = self.end_point
         
-        # Pre-compute directions and randomize for more natural paths
         directions = [(0, 1), (1, 0), (0, -1), (-1, 0),
                     (1, 1), (-1, -1), (1, -1), (-1, 1)]
-        random.shuffle(directions)  # Randomize initial direction choices
+        random.shuffle(directions)  
         
-        visited = set([start])  # Using set for O(1) lookup
-        stack = [(start, [start])]  # Store current position and path
-        update_frequency = 10  # Batch updates for performance
+        visited = set([start])  
+        stack = [(start, [start])] 
+        update_frequency = 10  
         updates = 0
         
         while stack:
             current, path = stack.pop()
             x, y = current
             
-            # Early exit if we found the end
             if current == end:
-                # Efficiently draw the final path
                 for px, py in path:
                     if self.grid[py][px] not in [2, 3]:
                         self.grid[py][px] = 4
                 return True
             
-            # Visualize current cell
             if self.grid[y][x] not in [2, 3]:
                 self.grid[y][x] = 5
                 updates += 1
                 
-                # Batch update the display
                 if updates % update_frequency == 0:
                     self.draw(screen)
                     pygame.display.flip()
-                    pygame.event.pump()  # Handle events to prevent freezing
+                    pygame.event.pump()  
             
-            # Randomize directions periodically for better exploration
             if len(path) % 5 == 0:
                 random.shuffle(directions)
             
-            # Check all neighbors efficiently
             valid_moves = []
             for dx, dy in directions:
                 nx, ny = x + dx, y + dy
                 neighbor = (nx, ny)
                 
-                # Combine all checks in one condition
                 if (0 <= nx < self.width and 
                     0 <= ny < self.height and 
                     neighbor not in visited and 
@@ -184,7 +175,6 @@ class Grid:
                     
                     valid_moves.append(neighbor)
             
-            # Add all valid moves to stack at once
             for move in valid_moves:
                 visited.add(move)
                 stack.append((move, path + [move]))
@@ -258,8 +248,7 @@ class Grid:
                 self.position = position
                 self.parent = parent
                 self.cost = cost
-                self.children = set()
-                
+        
         def distance(pos1, pos2):
             return ((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2) ** 0.5
         
@@ -268,11 +257,10 @@ class Grid:
                     0 <= y < self.height and 
                     self.grid[y][x] != 1)
         
-        def interpolate_points(p1, p2):
-            points = []
-            x1, y1 = p1
-            x2, y2 = p2
-            
+        def interpolate_path(start_pos, end_pos):
+            path = []
+            x1, y1 = start_pos
+            x2, y2 = end_pos
             dx = abs(x2 - x1)
             dy = abs(y2 - y1)
             x, y = x1, y1
@@ -283,7 +271,7 @@ class Grid:
             if dx > dy:
                 err = dx / 2.0
                 while x != x2:
-                    points.append((x, y))
+                    path.append((x, y))
                     err -= dy
                     if err < 0:
                         y += step_y
@@ -292,166 +280,127 @@ class Grid:
             else:
                 err = dy / 2.0
                 while y != y2:
-                    points.append((x, y))
+                    path.append((x, y))
                     err -= dx
                     if err < 0:
                         x += step_x
                         err += dy
                     y += step_y
-                    
-            points.append((x2, y2))
-            return points
+            
+            path.append((x2, y2))
+            return path
         
-        def get_neighbors(pos, radius=5):
-            neighbors = []
-            x, y = pos
-            for dx in range(-radius, radius + 1):
-                for dy in range(-radius, radius + 1):
-                    nx, ny = x + dx, y + dy
-                    if (dx, dy) != (0, 0) and is_valid(nx, ny):
-                        neighbors.append((nx, ny))
-            return neighbors
+        def check_path(path):
+            for x, y in path:
+                if not is_valid(x, y):
+                    return False
+            return True
         
         def find_nearest_node(tree, position):
             return min(tree.values(), key=lambda node: distance(node.position, position))
         
-        def rewire_neighborhood(tree, new_node, radius=5):
-            neighbors = get_neighbors(new_node.position, radius)
-            
-            for neighbor_pos in neighbors:
-                if neighbor_pos in tree:
-                    neighbor_node = tree[neighbor_pos]
-                    potential_cost = new_node.cost + distance(new_node.position, neighbor_pos)
-                    
-                    if potential_cost < neighbor_node.cost:
-                        if neighbor_node.parent:
-                            neighbor_node.parent.children.remove(neighbor_node)
-                        
-                        neighbor_node.parent = new_node
-                        neighbor_node.cost = potential_cost
-                        new_node.children.add(neighbor_node)
-                        
-                        stack = [neighbor_node]
-                        while stack:
-                            current = stack.pop()
-                            for child in current.children:
-                                child.cost = current.cost + distance(current.position, child.position)
-                                stack.append(child)
-        
-        def extend_tree(tree, target_pos, step_size=2):
+        def extend_tree(tree, target_pos):
             nearest_node = find_nearest_node(tree, target_pos)
+            current_pos = nearest_node.position
             
-            dx = target_pos[0] - nearest_node.position[0]
-            dy = target_pos[1] - nearest_node.position[1]
+            dx = target_pos[0] - current_pos[0]
+            dy = target_pos[1] - current_pos[1]
             dist = (dx * dx + dy * dy) ** 0.5
             
-            if dist > 0:
-                dx = dx / dist * min(step_size, dist)
-                dy = dy / dist * min(step_size, dist)
-                
-                new_x = int(nearest_node.position[0] + dx)
-                new_y = int(nearest_node.position[1] + dy)
-                
-                if is_valid(new_x, new_y):
-                    new_pos = (new_x, new_y)
-                    new_cost = nearest_node.cost + distance(nearest_node.position, new_pos)
-                    
-                    new_node = Node(new_pos, nearest_node, new_cost)
-                    nearest_node.children.add(new_node)
-                    tree[new_pos] = new_node
-                    
-                    # Visualize the continuous line between parent and new node
-                    interpolated_points = interpolate_points(nearest_node.position, new_pos)
-                    for px, py in interpolated_points:
-                        if self.grid[py][px] not in [2, 3]:
-                            self.grid[py][px] = 5
-                    
-                    rewire_neighborhood(tree, new_node)
-                    return new_node
-            return None
+            if dist == 0:
+                return None
+            
+            step_size = 3
+            dx = int(round(dx / dist * step_size))
+            dy = int(round(dy / dist * step_size))
+            
+            new_x = current_pos[0] + dx
+            new_y = current_pos[1] + dy
+            new_pos = (new_x, new_y)
+            
+            if not is_valid(new_x, new_y):
+                return None
+            
+            path = interpolate_path(current_pos, new_pos)
+            if not check_path(path):
+                return None
+            
+            new_cost = nearest_node.cost + distance(current_pos, new_pos)
+            new_node = Node(new_pos, nearest_node, new_cost)
+            tree[new_pos] = new_node
+            
+            for px, py in path:
+                if self.grid[py][px] not in [2, 3]:
+                    self.grid[py][px] = 5
+            
+            return new_node
         
-        def construct_path(start_node, end_node):
+        def construct_path(node):
             path = []
-            
-            current = end_node
-            while current:
+            current = node
+            while current is not None:
                 path.append(current.position)
                 current = current.parent
+            return path[::-1]
+        
+        def visualize_final_path(path_points):
+            for i in range(len(path_points) - 1):
+                point1 = path_points[i]
+                point2 = path_points[i + 1]
                 
-            path.reverse()
-            
-            current = end_node.parent  
-            while current:
-                path.append(current.position)
-                current = current.parent
-                
-            return path
+                interpolated = interpolate_path(point1, point2)
+                for x, y in interpolated:
+                    if self.grid[y][x] not in [2, 3]:  
+                        self.grid[y][x] = 4
         
         start_tree = {start: Node(start)}
         end_tree = {end: Node(end)}
         
-        max_iterations = 5000
-        min_path_length = float('inf')
-        best_path = None
-        connecting_pair = None
+        max_iterations = 2000
+        goal_bias = 0.2
         
-        # Main RRT* loop
         for iteration in range(max_iterations):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return False
             
-            # Alternate between trees
             if iteration % 2 == 0:
                 active_tree = start_tree
                 other_tree = end_tree
             else:
                 active_tree = end_tree
                 other_tree = start_tree
-                
-            if random.random() < 0.1:  # 10% chance to target the goal
+            
+            if random.random() < goal_bias:
                 target = list(other_tree.keys())[0]
             else:
-                target = (random.randint(1, self.width - 2),
-                        random.randint(1, self.height - 2))
+                target = (random.randint(1, self.width-2),
+                        random.randint(1, self.height-2))
             
             new_node = extend_tree(active_tree, target)
+            
             if new_node:
-                nearby_nodes = get_neighbors(new_node.position, radius=3)
-                for near_pos in nearby_nodes:
-                    if near_pos in other_tree:
-                        other_node = other_tree[near_pos]
-                        path_length = new_node.cost + other_node.cost + distance(new_node.position, near_pos)
-                        
-                        if path_length < min_path_length:
-                            min_path_length = path_length
-                            connecting_pair = (new_node, other_node)
+                for other_pos, other_node in other_tree.items():
+                    if distance(new_node.position, other_pos) < 5:
+                        connecting_path = interpolate_path(new_node.position, other_pos)
+                        if check_path(connecting_path):
+                            # Construct complete path
+                            if active_tree == start_tree:
+                                path_points = (construct_path(new_node) + 
+                                            connecting_path +
+                                            construct_path(other_node)[::-1])
+                            else:
+                                path_points = (construct_path(other_node) + 
+                                            connecting_path +
+                                            construct_path(new_node)[::-1])
+                            
+                            visualize_final_path(path_points)
+                            return True
             
             if iteration % 10 == 0:
                 self.draw(screen)
                 pygame.display.flip()
-        
-        if connecting_pair:
-            if start_tree.get(connecting_pair[0].position):
-                start_node = connecting_pair[0]
-                end_node = connecting_pair[1]
-            else:
-                start_node = connecting_pair[1]
-                end_node = connecting_pair[0]
-            
-            path = construct_path(start_node, end_node)
-            
-            for i in range(len(path) - 1):
-                point1 = path[i]
-                point2 = path[i + 1]
-                interpolated = interpolate_points(point1, point2)
-                
-                for px, py in interpolated:
-                    if self.grid[py][px] not in [2, 3]:  
-                        self.grid[py][px] = 4
-            
-            return True
         
         return False
 
