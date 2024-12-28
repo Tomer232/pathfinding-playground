@@ -239,7 +239,7 @@ class Grid:
 
         return False
 
-    def bi_rrt_star(self, screen):
+    def ib_rrt_star(self, screen):
         start = self.start_point
         end = self.end_point
         
@@ -467,7 +467,7 @@ def main():
         {"name": "BFS", "rect": pygame.Rect(900, 50, 200, 50)},
         {"name": "DFS", "rect": pygame.Rect(900, 120, 200, 50)},
         {"name": "A*", "rect": pygame.Rect(900, 190, 200, 50)},
-        {"name": "BI-RRT*", "rect": pygame.Rect(900, 260, 200, 50)},
+        {"name": "IB-RRT*", "rect": pygame.Rect(900, 260, 200, 50)},
         {"name": "NEW MAP", "rect": pygame.Rect(900, 330, 200, 50)}
     ]
 
@@ -475,6 +475,7 @@ def main():
     def draw_buttons(running_algo = None):
         font = pygame.font.SysFont("Verdana", 36)
         button_color = (232, 241, 242)
+        new_map_color = (34, 177, 76)
         outline_color = (0, 0, 0)
         text_color = (0, 0, 0)
         active_button_color = (4, 150, 255)
@@ -487,7 +488,11 @@ def main():
         for button in buttons:
             if running_algo == button["name"]:  # Highlight the currently running button
                 pygame.draw.rect(screen, outline_color, button["rect"], 2)
-                pygame.draw.rect(screen, active_button_color, button["rect"].inflate(-4, -4))
+
+                if button["name"] == "NEW MAP":
+                    pygame.draw.rect(screen, new_map_color, button["rect"].inflate(-4, -4))
+                else:
+                    pygame.draw.rect(screen, active_button_color, button["rect"].inflate(-4, -4))
                 text = font.render(button["name"], True, active_text_color)
             else:
                 pygame.draw.rect(screen, outline_color, button["rect"], 2)
@@ -534,17 +539,21 @@ def main():
                             if grid.a_star(screen):
                                 save_playground_with_data(screen, "playground_astar", "A*")
                             current_algorithm_running = False
-                        elif button["name"] == "BI-RRT*" and not current_algorithm_running:
+                        elif button["name"] == "IB-RRT*" and not current_algorithm_running:
                             current_algorithm_running = True
                             grid.reset_visualization()
-                            draw_buttons(running_algo="BI-RTT*")  
+                            draw_buttons(running_algo="IB-RRT*")  
                             pygame.display.flip()  
-                            if grid.bi_rrt_star(screen):
-                                save_playground_with_data(screen, "playground_bi_rrt_star", "BI-RRT*")
+                            if grid.ib_rrt_star(screen):
+                                save_playground_with_data(screen, "playground_ib_rrt_star", "IB-RRT*")
                             current_algorithm_running = False
                         elif button["name"] == "NEW MAP":
+                            current_algorithm_running == True
+                            draw_buttons(running_algo="NEW MAP")
+                            pygame.display.flip()
                             grid = Grid(cell_size=7)
                             grid.place_start_and_end_points()
+                            current_algorithm_running = False
 
         screen.fill((255, 255, 255))
         grid.draw(screen)
