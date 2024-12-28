@@ -20,4 +20,4 @@ I chose to include the BI-RRT* algorithm because I want to familiarize myself wi
 - Button panel for easy control and algorithm selection.
 
 ---
-![picture of the map before running an algorithem]("C:\Users\tomer\Pictures\Screenshots\צילום מסך 2024-12-28 165209.png")
+
