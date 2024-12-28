@@ -20,5 +20,4 @@ I chose to include the BI-RRT* algorithm because I want to familiarize myself wi
 - Button panel for easy control and algorithm selection.
 
 ---
-Straightforward and ready to use. Enjoy exploring algorithms!
 
